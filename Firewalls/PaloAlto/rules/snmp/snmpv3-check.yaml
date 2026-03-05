@@ -1,0 +1,20 @@
+id: "CIS-PA-1.5.2"
+name: "SNMPv3 configurado (obrigatório)"
+category: "SNMP"
+severity: "MEDIUM"
+
+check:
+  type: "required_line"    # se NÃO encontrar, FAIL
+  match:
+    mode: "all_terms_in_same_line"
+    terms:
+      - "snmp-setting"
+      - "version"
+      - "v3"
+
+output:
+  finding_title: "SNMPv3 ausente"
+  show_full_line: false
+  recommendation: >
+    Configurar SNMPv3 com auth+priv (SHA/AES) e validar usuários/views conforme NMS.
+  reference: "CIS Palo Alto Firewall Benchmark (seção SNMP)"

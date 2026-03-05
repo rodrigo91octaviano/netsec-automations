@@ -1,0 +1,21 @@
+id: "CIS-PA-1.5.1"
+name: "SNMPv2c detectado (não permitido)"
+category: "SNMP"
+severity: "HIGH"
+
+check:
+  type: "forbidden_line"   # se encontrar, FAIL
+  match:
+    mode: "all_terms_in_same_line"
+    terms:
+      - "snmp-setting"
+      - "version"
+      - "v2c"
+
+output:
+  finding_title: "SNMPv2 encontrada"
+  show_full_line: true
+  recommendation: >
+    Migrar para SNMPv3 com autenticação e privacidade (ex.: SHA/AES) e restringir
+    o acesso no management plane apenas aos IPs do NMS.
+  reference: "CIS Palo Alto Firewall Benchmark (controle 1.5.1) + Palo Alto Admin Guide (SNMP)"

@@ -1,0 +1,5 @@
+vulnerabilidade_encontrada,comando_encontrado,recomendacao,fonte
+SNMPv2 encontrada,set deviceconfig system snmp-setting access-setting version v2c,"Migrar para SNMPv3 com autenticação e privacidade (ex.: SHA/AES) e restringir o acesso no management plane apenas aos IPs do NMS.
+",CIS Palo Alto Firewall Benchmark (controle 1.5.1) + Palo Alto Admin Guide (SNMP)
+SNMPv3 ausente,,"Configurar SNMPv3 com auth+priv (SHA/AES) e validar usuários/views conforme NMS.
+",CIS Palo Alto Firewall Benchmark (seção SNMP)
