@@ -1,0 +1,14 @@
+# Python
+__pycache__/
+*.pyc
+.venv/
+venv/
+
+# Outputs (opcional: se você não quiser versionar relatórios)
+Firewalls/**/outputs/*.json
+Firewalls/**/outputs/*.csv
+Firewalls/**/outputs/*.txt
+
+# OS / Editor
+.DS_Store
+.vscode/
