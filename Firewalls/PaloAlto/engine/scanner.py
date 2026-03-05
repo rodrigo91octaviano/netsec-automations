@@ -17,7 +17,9 @@ OUTPUTS_DIR = os.path.join(BASE_DIR, "outputs")
 
 
 def load_rules():
-    """Carrega todos os YAML dentro de rules/ (incluindo subpastas)."""
+    """Carrega todos os YAML dentro de rules/ (incluindo subpastas).
+    Se algum YAML estiver quebrado, ignora e avisa no console.
+    """
     rules = []
 
     for root, _, files in os.walk(RULES_DIR):
@@ -25,12 +27,22 @@ def load_rules():
             if file.endswith(".yaml"):
                 path = os.path.join(root, file)
 
-                with open(path, "r", encoding="utf-8") as f:
-                    rule = yaml.safe_load(f)
+                try:
+                    with open(path, "r", encoding="utf-8") as f:
+                        rule = yaml.safe_load(f)
 
-                rule["_file_path"] = path
-                rule["_file_name"] = file
-                rules.append(rule)
+                    # YAML vazio ou inválido pode virar None
+                    if not isinstance(rule, dict):
+                        raise ValueError("YAML vazio ou inválido (não retornou um dict).")
+
+                    rule["_file_path"] = path
+                    rule["_file_name"] = file
+                    rules.append(rule)
+
+                except Exception as e:
+                    print(f"[ERRO YAML] Falha ao carregar: {path}")
+                    print(f"Motivo: {e}")
+                    print("Regra ignorada.\n")
 
     return rules
 
@@ -42,11 +54,13 @@ def load_config_lines(path):
 
 
 def find_latest_input_file(input_dir):
-    """
-    Pega o arquivo mais recente de inputs/<client>/.
-    Critério simples: maior mtime (data de modificação).
-    """
-    files = [os.path.join(input_dir, f) for f in os.listdir(input_dir) if os.path.isfile(os.path.join(input_dir, f))]
+    """Pega o arquivo mais recente de inputs/<client>/ (maior mtime)."""
+    files = [
+        os.path.join(input_dir, f)
+        for f in os.listdir(input_dir)
+        if os.path.isfile(os.path.join(input_dir, f))
+    ]
+
     if not files:
         raise FileNotFoundError(f"Nenhum arquivo encontrado em: {input_dir}")
 
@@ -59,8 +73,7 @@ def match_all_terms_same_line(terms, line):
 
 
 def evaluate_rule(rule, config_lines):
-    """
-    Executa uma regra e retorna um dict com resultado.
+    """Executa uma regra e retorna um dict com resultado.
     Suporta:
       - forbidden_line: se achar match => FAIL
       - required_line: se NÃO achar match => FAIL
@@ -74,6 +87,7 @@ def evaluate_rule(rule, config_lines):
 
     check = rule.get("check", {})
     check_type = check.get("type", "forbidden_line")
+
     match = check.get("match", {})
     mode = match.get("mode", "all_terms_in_same_line")
     terms = match.get("terms", [])
@@ -81,7 +95,7 @@ def evaluate_rule(rule, config_lines):
     if not terms:
         return {
             "id": rule_id,
-            "title": rule_name,
+            "title": rule.get("output", {}).get("finding_title", rule_name),
             "category": category,
             "severity": severity,
             "status": "ERROR",
@@ -97,11 +111,10 @@ def evaluate_rule(rule, config_lines):
         if mode == "all_terms_in_same_line":
             if match_all_terms_same_line(terms, line):
                 matched.append(line.strip())
-
         else:
             return {
                 "id": rule_id,
-                "title": rule_name,
+                "title": rule.get("output", {}).get("finding_title", rule_name),
                 "category": category,
                 "severity": severity,
                 "status": "ERROR",
@@ -132,8 +145,8 @@ def evaluate_rule(rule, config_lines):
     }
 
 
-def save_csv(output_csv_path, findings):
-    """Gera a tabela CSV para abrir no Excel."""
+def save_csv(output_csv_path, results):
+    """Gera a tabela CSV para abrir no Excel (somente FAIL e ERROR)."""
     with open(output_csv_path, "w", newline="", encoding="utf-8") as csvfile:
         writer = csv.DictWriter(
             csvfile,
@@ -141,22 +154,23 @@ def save_csv(output_csv_path, findings):
         )
         writer.writeheader()
 
-        for f in findings:
-            # Se houver várias linhas batendo, a gente concatena com " | "
-            cmd = " | ".join(f["matched_lines"]) if f["matched_lines"] else ""
+        for r in results:
+            # Exporta FAIL e ERROR (pra você enxergar regra quebrada também)
+            if r["status"] not in ("FAIL", "ERROR"):
+                continue
 
-            # Só exporta FAIL por padrão (mais útil). Se quiser tudo, mude aqui.
-            if f["status"] == "FAIL":
-                writer.writerow({
-                    "vulnerabilidade_encontrada": f["title"],
-                    "comando_encontrado": cmd,
-                    "recomendacao": f["recommendation"],
-                    "fonte": f["reference"]
-                })
+            cmd = " | ".join(r["matched_lines"]) if r["matched_lines"] else ""
+
+            writer.writerow({
+                "vulnerabilidade_encontrada": r["title"] if r["status"] == "FAIL" else f"[ERRO REGRA] {r['title']}",
+                "comando_encontrado": cmd,
+                "recomendacao": r["recommendation"] if r["status"] == "FAIL" else (r.get("error") or "Erro ao executar regra."),
+                "fonte": r["reference"]
+            })
 
 
 def wrap_text(text, max_chars=110):
-    """Quebra texto para caber no PDF sem depender de biblioteca extra."""
+    """Quebra texto para caber no PDF sem dependência extra."""
     words = text.split()
     lines = []
     current = []
@@ -174,8 +188,8 @@ def wrap_text(text, max_chars=110):
     return lines
 
 
-def save_pdf(output_pdf_path, client, input_file, scan_dt, findings):
-    """Gera PDF legível (estilo relatório) com os FAILs."""
+def save_pdf(output_pdf_path, client, input_file, scan_dt, results):
+    """Gera PDF legível (somente FAIL e ERROR)."""
     c = canvas.Canvas(output_pdf_path, pagesize=A4)
     width, height = A4
 
@@ -195,11 +209,10 @@ def save_pdf(output_pdf_path, client, input_file, scan_dt, findings):
     c.drawString(margin_x, y, f"Scan date: {scan_dt}")
     y -= 1.0 * cm
 
-    # Resumo
-    total = len(findings)
-    failed = sum(1 for f in findings if f["status"] == "FAIL")
-    passed = sum(1 for f in findings if f["status"] == "PASS")
-    errors = sum(1 for f in findings if f["status"] == "ERROR")
+    total = len(results)
+    failed = sum(1 for r in results if r["status"] == "FAIL")
+    passed = sum(1 for r in results if r["status"] == "PASS")
+    errors = sum(1 for r in results if r["status"] == "ERROR")
 
     c.setFont("Helvetica-Bold", 11)
     c.drawString(margin_x, y, "Summary")
@@ -209,40 +222,46 @@ def save_pdf(output_pdf_path, client, input_file, scan_dt, findings):
     c.drawString(margin_x, y, f"Total checks: {total} | PASS: {passed} | FAIL: {failed} | ERROR: {errors}")
     y -= 1.0 * cm
 
-    # Achados (somente FAIL)
+    # Achados (FAIL + ERROR)
     c.setFont("Helvetica-Bold", 11)
-    c.drawString(margin_x, y, "Findings (FAIL)")
+    c.drawString(margin_x, y, "Findings (FAIL/ERROR)")
     y -= 0.7 * cm
 
     c.setFont("Helvetica", 10)
 
-    fail_findings = [f for f in findings if f["status"] == "FAIL"]
+    findings = [r for r in results if r["status"] in ("FAIL", "ERROR")]
 
-    if not fail_findings:
+    if not findings:
         c.drawString(margin_x, y, "No findings. All checks passed.")
         c.save()
         return
 
-    for idx, fnd in enumerate(fail_findings, start=1):
+    for idx, fnd in enumerate(findings, start=1):
         block_lines = []
 
-        block_lines.append(f"{idx}. {fnd['title']}  [{fnd['id']}]  (Severity: {fnd['severity']})")
-        if fnd["matched_lines"]:
-            block_lines.append("Command found:")
-            for ml in fnd["matched_lines"][:5]:  # limita para não explodir o PDF
-                block_lines.extend(wrap_text(f"  - {ml}", max_chars=110))
-            if len(fnd["matched_lines"]) > 5:
-                block_lines.append(f"  - ... ({len(fnd['matched_lines']) - 5} more)")
+        if fnd["status"] == "ERROR":
+            block_lines.append(f"{idx}. [ERRO REGRA] {fnd['title']}  [{fnd['id']}]")
+            block_lines.append("Detalhes do erro:")
+            block_lines.extend(wrap_text(f"  {fnd.get('error','')}", max_chars=110))
+            block_lines.append("Fonte:")
+            block_lines.extend(wrap_text(f"  {fnd.get('reference','')}", max_chars=110))
         else:
-            block_lines.append("Command found: (none captured)")
+            block_lines.append(f"{idx}. {fnd['title']}  [{fnd['id']}]  (Severity: {fnd['severity']})")
+            block_lines.append("Command found:")
+            if fnd["matched_lines"]:
+                for ml in fnd["matched_lines"][:5]:
+                    block_lines.extend(wrap_text(f"  - {ml}", max_chars=110))
+                if len(fnd["matched_lines"]) > 5:
+                    block_lines.append(f"  - ... ({len(fnd['matched_lines']) - 5} more)")
+            else:
+                block_lines.append("  - (none captured)")
 
-        block_lines.append("Recommendation:")
-        block_lines.extend(wrap_text(f"  {fnd['recommendation']}", max_chars=110))
+            block_lines.append("Recommendation:")
+            block_lines.extend(wrap_text(f"  {fnd['recommendation']}", max_chars=110))
 
-        block_lines.append("Reference:")
-        block_lines.extend(wrap_text(f"  {fnd['reference']}", max_chars=110))
+            block_lines.append("Reference:")
+            block_lines.extend(wrap_text(f"  {fnd['reference']}", max_chars=110))
 
-        # escreve bloco
         for line in block_lines:
             if y <= 2.2 * cm:
                 c.showPage()
@@ -251,7 +270,7 @@ def save_pdf(output_pdf_path, client, input_file, scan_dt, findings):
             c.drawString(margin_x, y, line)
             y -= 0.45 * cm
 
-        y -= 0.35 * cm  # espaço entre achados
+        y -= 0.35 * cm
 
     c.save()
 
@@ -271,13 +290,28 @@ def run_scan(client):
     output_pdf_path = os.path.join(output_dir, f"report_{scan_dt}.pdf")
 
     results = []
+
     for rule in rules:
-        results.append(evaluate_rule(rule, config_lines))
+        try:
+            results.append(evaluate_rule(rule, config_lines))
+        except Exception as e:
+            # Não para o scanner: registra erro e segue
+            results.append({
+                "id": rule.get("id", "UNKNOWN"),
+                "title": rule.get("name", rule.get("title", "Regra com erro")),
+                "category": rule.get("category", "UNKNOWN"),
+                "severity": "ERROR",
+                "status": "ERROR",
+                "matched_lines": [],
+                "recommendation": "Verificar erro na regra YAML.",
+                "reference": rule.get("_file_name", "unknown"),
+                "error": str(e)
+            })
 
-    # CSV: só FAIL (tabela)
+            print(f"[ERRO NA REGRA] {rule.get('_file_name')}")
+            print(f"Motivo: {e}\n")
+
     save_csv(output_csv_path, results)
-
-    # PDF: legível humano
     save_pdf(output_pdf_path, client, input_file, scan_dt, results)
 
     print("Scan finalizado.")
@@ -287,5 +321,4 @@ def run_scan(client):
 
 
 if __name__ == "__main__":
-    # Troque aqui para o cliente desejado
     run_scan("client-A")
