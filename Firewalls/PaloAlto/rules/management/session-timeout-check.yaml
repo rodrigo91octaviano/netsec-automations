@@ -1,0 +1,22 @@
+id: "0003"
+name: "Session timeout de administração (idle timeout) não conforme"
+category: "Management"
+severity: "MEDIUM"
+
+check:
+  type: "required_line"
+  match:
+    mode: "all_terms_in_same_line"
+    terms:
+      - "deviceconfig"
+      - "setting"
+      - "management"
+      - "idle-timeout"
+
+output:
+  finding_title: "Idle timeout não evidenciado (verificar se <= 10 min)"
+  show_full_line: false
+  recommendation: >
+    Ajustar o Idle Timeout do management para 10 minutos ou menos, reduzindo risco de
+    sessão administrativa abandonada ficar aberta.
+  reference: "CIS Palo Alto Firewall 11 Benchmark v1.2.0 - 1.4.1"

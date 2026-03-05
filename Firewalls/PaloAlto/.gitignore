@@ -8,6 +8,7 @@ venv/
 Firewalls/**/outputs/*.json
 Firewalls/**/outputs/*.csv
 Firewalls/**/outputs/*.txt
+Firewalls/**/outputs/*
 
 # OS / Editor
 .DS_Store

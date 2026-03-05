@@ -1,0 +1,20 @@
+id: "0001"
+name: "NTP sem redundância (menos de 2 servidores)"
+category: "NTP"
+severity: "MEDIUM"
+
+check:
+  type: "required_line"   # precisa existir; se não existir => FAIL
+  match:
+    mode: "all_terms_in_same_line"
+    terms:
+      - "ntp-servers"
+      - "primary-ntp-server"
+
+output:
+  finding_title: "NTP não configurado (Primary ausente)"
+  show_full_line: false
+  recommendation: >
+    Configurar NTP com pelo menos dois servidores (Primary e Secondary) para manter
+    timestamps consistentes em logs e serviços dependentes de tempo.
+  reference: "CIS Palo Alto Firewall 11 Benchmark v1.2.0 - 1.6.2"

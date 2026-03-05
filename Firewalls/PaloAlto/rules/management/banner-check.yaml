@@ -1,0 +1,21 @@
+id: "0004"
+name: "Login banner ausente"
+category: "Management"
+severity: "LOW"
+
+check:
+  type: "required_line"
+  match:
+    mode: "all_terms_in_same_line"
+    terms:
+      - "deviceconfig"
+      - "system"
+      - "login-banner"
+
+output:
+  finding_title: "Login banner ausente"
+  show_full_line: false
+  recommendation: >
+    Configurar um banner de login aprovado (idealmente pelo jurídico), proibindo acesso não
+    autorizado e avisando sobre monitoramento. Evitar termos como “welcome”.
+  reference: "CIS Palo Alto Firewall 11 Benchmark v1.2.0 - 1.1.2"

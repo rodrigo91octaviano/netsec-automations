@@ -1,0 +1,13 @@
+vulnerabilidade_encontrada,comando_encontrado,recomendacao,fonte
+Login banner ausente,,"Configurar um banner de login aprovado (idealmente pelo jurídico), proibindo acesso não autorizado e avisando sobre monitoramento. Evitar termos como “welcome”.
+",CIS Palo Alto Firewall 11 Benchmark v1.2.0 - 1.1.2
+Política de senha (complexidade mínima) não evidenciada,,"Habilitar e ajustar a política de complexidade mínima de senha (comprimento e classes de caracteres), alinhando com CIS e política interna.
+",CIS Palo Alto Firewall 11 Benchmark v1.2.0 - 1.3.1 (Minimum Password Complexity)
+Idle timeout não evidenciado (verificar se <= 10 min),,"Ajustar o Idle Timeout do management para 10 minutos ou menos, reduzindo risco de sessão administrativa abandonada ficar aberta.
+",CIS Palo Alto Firewall 11 Benchmark v1.2.0 - 1.4.1
+NTP não configurado (Primary ausente),,"Configurar NTP com pelo menos dois servidores (Primary e Secondary) para manter timestamps consistentes em logs e serviços dependentes de tempo.
+",CIS Palo Alto Firewall 11 Benchmark v1.2.0 - 1.6.2
+SNMPv2 encontrada,set deviceconfig system snmp-setting access-setting version v2c,"Migrar para SNMPv3 com autenticação e privacidade (ex.: SHA/AES) e restringir o acesso no management plane apenas aos IPs do NMS.
+",CIS Palo Alto Firewall Benchmark (controle 1.5.1) + Palo Alto Admin Guide (SNMP)
+SNMPv3 ausente,,"Configurar SNMPv3 com auth+priv (SHA/AES) e validar usuários/views conforme NMS.
+",CIS Palo Alto Firewall Benchmark (seção SNMP)
